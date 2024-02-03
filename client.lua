@@ -515,9 +515,45 @@ end
 -- Commands & KeyMapping --
 CreateThread(function()
     if Config.CrouchKeybindEnabled then
+        local holdingCrouch = false
+        local preventCrouch = false
+        
         RegisterKeyMapping('+crouch', Config.Localization['crouch_keymapping'], "keyboard", Config.CrouchKeybind)
-        RegisterCommand('+crouch', function() CrouchKeyPressed() end, false)
-        RegisterCommand('-crouch', function() end, false) -- This needs to be here to prevent warnings in chat
+
+        RegisterCommand('+crouch', function()
+            DisableControlAction(0, 36, true)
+
+            if isCrouched then return end
+
+            holdingCrouch = true
+            local time = GetGameTimer()
+
+            while holdingCrouch and GetGameTimer()-time < 750 do Wait(0) end
+
+            if GetGameTimer()-time >= 750 then
+                preventCrouch = true
+                SetPedStealthMovement(PlayerPedId(), true, "DEFAULT_ACTION")
+            end
+        end, false)
+
+        RegisterCommand('-crouch', function()
+            if holdingCrouch and preventCrouch then
+                holdingCrouch = false
+                preventCrouch = false
+                return
+            end
+
+            holdingCrouch = false
+            preventCrouch = false
+
+            local playerPed = PlayerPedId()
+            if GetPedStealthMovement(playerPed) == 1 then
+                isCrouched = false
+                return SetPedStealthMovement(playerPed, false, "DEFAULT_ACTION")
+            end
+
+            CrouchKeyPressed()
+        end, false)
     end
     RegisterCommand('crouch', function()
         if isCrouched then
